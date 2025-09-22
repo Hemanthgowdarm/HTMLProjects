@@ -1,0 +1,99 @@
+#include <QMainWindow>
+#include <QFrame>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include <QStackedWidget>
+#include <QLabel>
+
+class MainWindow : public QMainWindow {
+    Q_OBJECT
+public:
+    MainWindow(QWidget *parent = nullptr) : QMainWindow(parent) {
+        // Central widget
+        QWidget *central = new QWidget(this);
+        setCentralWidget(central);
+
+        // Sidebar frame
+        QFrame *sidebar = new QFrame;
+        sidebar->setFixedWidth(200);
+        sidebar->setStyleSheet(
+            "QFrame {"
+            "   background-color: #2E3440;"
+            "   border: none;"
+            "}"
+            "QPushButton {"
+            "   background-color: transparent;"
+            "   color: white;"
+            "   font-size: 15px;"
+            "   padding: 10px;"
+            "   text-align: left;"
+            "   border-radius: 8px;"
+            "}"
+            "QPushButton:hover {"
+            "   background-color: #4C566A;"
+            "}"
+            "QPushButton:checked {"
+            "   background-color: #5E81AC;"
+            "}"
+        );
+
+        // Sidebar buttons
+        QPushButton *btnHome = new QPushButton("🏠  Home");
+        QPushButton *btnProfile = new QPushButton("👤  Profile");
+        QPushButton *btnSettings = new QPushButton("⚙️  Settings");
+        QPushButton *btnLogout = new QPushButton("🚪  Logout");
+
+        btnHome->setCheckable(true);
+        btnProfile->setCheckable(true);
+        btnSettings->setCheckable(true);
+        btnLogout->setCheckable(true);
+
+        QList<QPushButton*> buttons = {btnHome, btnProfile, btnSettings, btnLogout};
+        for (auto b : buttons) {
+            b->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        }
+        btnHome->setChecked(true);
+
+        // Sidebar layout
+        QVBoxLayout *sidebarLayout = new QVBoxLayout(sidebar);
+        sidebarLayout->setContentsMargins(10, 20, 10, 10);
+        sidebarLayout->setSpacing(10);
+        sidebarLayout->addWidget(btnHome);
+        sidebarLayout->addWidget(btnProfile);
+        sidebarLayout->addWidget(btnSettings);
+        sidebarLayout->addStretch();
+        sidebarLayout->addWidget(btnLogout);
+
+        // Pages
+        QStackedWidget *stack = new QStackedWidget;
+        stack->addWidget(new QLabel("🏠 Home Page"));
+        stack->addWidget(new QLabel("👤 Profile Page"));
+        stack->addWidget(new QLabel("⚙️ Settings Page"));
+        stack->addWidget(new QLabel("🚪 Logout Page"));
+
+        // Main layout → sidebar goes on the RIGHT now
+        QHBoxLayout *mainLayout = new QHBoxLayout(central);
+        mainLayout->setContentsMargins(0,0,0,0);
+        mainLayout->addWidget(stack, 1);
+        mainLayout->addWidget(sidebar);   // moved to right
+
+        // Connections
+        connect(btnHome, &QPushButton::clicked, this, [=]{
+            uncheckAll(buttons); btnHome->setChecked(true); stack->setCurrentIndex(0);
+        });
+        connect(btnProfile, &QPushButton::clicked, this, [=]{
+            uncheckAll(buttons); btnProfile->setChecked(true); stack->setCurrentIndex(1);
+        });
+        connect(btnSettings, &QPushButton::clicked, this, [=]{
+            uncheckAll(buttons); btnSettings->setChecked(true); stack->setCurrentIndex(2);
+        });
+        connect(btnLogout, &QPushButton::clicked, this, [=]{
+            uncheckAll(buttons); btnLogout->setChecked(true); stack->setCurrentIndex(3);
+        });
+    }
+
+private:
+    void uncheckAll(const QList<QPushButton*> &buttons) {
+        for (auto b : buttons) b->setChecked(false);
+    }
+};
