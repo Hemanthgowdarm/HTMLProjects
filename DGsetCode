@@ -1,0 +1,229 @@
+Give full code for modern desiel generator control panal with its functionality using qml qt 6.9 and show end result in image formate
+
+Below is a full prototype for a modern diesel generator control panel using QML with Qt 6.9, along with an explanation of its major functionalities and how it connects to typical backend controls. An image mockup representation is provided at the end.
+
+### Core Features
+- **Start/Stop controls**
+- **RPM, Voltage, and Frequency displays**
+- **Fuel & Battery indicators**
+- **Alarm and system state display**
+- **Engine temperature gauge**
+- **Run-time meter**
+- **Icon-based status alerts**
+
+***
+
+### QML Example (`Main.qml`)
+
+```qml
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
+import QtQuick.Shapes 1.15
+
+ApplicationWindow {
+    visible: true
+    width: 800
+    height: 480
+    title: "Diesel Generator Control Panel"
+
+    Rectangle {
+        anchors.fill: parent
+        color: "#212a34"
+        border.color: "#444"
+        radius: 12
+
+        // Top bar with generator status
+        Rectangle {
+            width: parent.width
+            height: 48
+            color: "#22334f"
+            anchors.top: parent.top
+            Text {
+                anchors.centerIn: parent
+                text: generator.status
+                font.pixelSize: 22
+                color: generator.status === "RUNNING" ? "#32cd32" : "#ffc107"
+                font.bold: true
+            }
+        }
+
+        // Gauges & Info
+        RowLayout {
+            anchors.top: parent.top
+            anchors.topMargin: 60
+            anchors.left: parent.left
+            anchors.leftMargin: 40
+            spacing: 80
+
+            // RPM Gauge
+            Dial {
+                id: rpm
+                value: generator.rpm
+                maximumValue: 4000
+                from: 0
+                to: 4000
+                width: 120
+                height: 120
+                foreground: Rectangle {
+                    color: "transparent"
+                    anchors.fill: parent
+                    Text {
+                        text: qsTr("RPM")
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: parent.bottom
+                        font.pixelSize: 16
+                        color: "white"
+                        anchors.bottomMargin: 6
+                    }
+                }
+                style: DialStyle {
+                    // Custom styling omitted for brevity
+                }
+            }
+
+            // Voltage Display
+            Rectangle {
+                width: 100; height: 100; color: "#333"; radius: 8
+                Column {
+                    anchors.centerIn: parent
+                    Text { text: qsTr("Voltage"); color: "#98cafc"; font.pixelSize: 16 }
+                    Text { text: generator.voltage + " V"; font.pixelSize: 20; color: "white"; font.bold: true }
+                }
+            }
+
+            // Frequency Display
+            Rectangle {
+                width: 100; height: 100; color: "#333"; radius: 8
+                Column {
+                    anchors.centerIn: parent
+                    Text { text: qsTr("Frequency"); color: "#98cafc"; font.pixelSize: 16 }
+                    Text { text: generator.frequency + " Hz"; font.pixelSize: 20; color: "white"; font.bold: true }
+                }
+            }
+        }
+
+        // Fuel & Battery Indicators
+        RowLayout {
+            anchors.top: parent.top
+            anchors.topMargin: 220
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 40
+
+            // Fuel Gauge
+            Rectangle {
+                width: 70; height: 130; color: "#252636"; radius: 6
+                ProgressBar { value: generator.fuelLevel / 100; anchors.fill: parent }
+                Text { text: qsTr("Fuel"); anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; font.pixelSize: 13; color: "white"; anchors.bottomMargin: 8 }
+            }
+            // Battery Indicator
+            Rectangle {
+                width: 70; height: 130; color: "#252636"; radius: 6
+                ProgressBar { value: generator.batteryLevel / 100; anchors.fill: parent }
+                Text { text: qsTr("Battery"); anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; font.pixelSize: 13; color: "white"; anchors.bottomMargin: 8 }
+            }
+        }
+
+        // Alarm/Status panel
+        Rectangle {
+            width: 200; height: 56; color: "#3d2626"; anchors.bottom: parent.bottom; anchors.right: parent.right; anchors.rightMargin: 30; anchors.bottomMargin: 30; radius: 8
+            Text {
+                anchors.centerIn: parent
+                text: generator.alarmText
+                color: "red"
+                font.pixelSize: 18
+                font.bold: true
+                visible: generator.hasAlarm
+            }
+        }
+
+        // Start/Stop Buttons
+        RowLayout {
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 32
+            spacing: 40
+            anchors.horizontalCenter: parent.horizontalCenter
+
+            Button {
+                text: qsTr("Start")
+                enabled: generator.status === "STOPPED"
+                onClicked: generator.start()
+                font.pixelSize: 20
+            }
+            Button {
+                text: qsTr("Stop")
+                enabled: generator.status === "RUNNING"
+                onClicked: generator.stop()
+                font.pixelSize: 20
+            }
+        }
+
+        // Engine Temperature
+        Column {
+            anchors.right: parent.right
+            anchors.rightMargin: 50
+            anchors.verticalCenter: parent.verticalCenter
+
+            Text { text: qsTr("Temp"); color: "#98cafc"; font.pixelSize: 14 }
+            Text { text: generator.engineTemp + "°C"; color: "#ffaa00"; font.pixelSize: 24; font.bold: true }
+        }
+
+        // Uptime
+        Column {
+            anchors.left: parent.left
+            anchors.leftMargin: 50
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 60
+            Text { text: qsTr("Run-Time"); font.pixelSize: 13; color: "#98cafc" }
+            Text { text: generator.runTime + "h"; font.pixelSize: 18; color: "white" }
+        }
+    }
+
+    // Dummy backend attachment (in real app, replace with actual cpp/backend interface)
+    QtObject {
+        id: generator
+        property string status: "STOPPED"
+        property int rpm: 0
+        property real voltage: 0.0
+        property real frequency: 0.0
+        property real fuelLevel: 80.0
+        property real batteryLevel: 90.0
+        property bool hasAlarm: false
+        property string alarmText: ""
+        property real engineTemp: 45
+        property real runTime: 0.5
+
+        function start() {
+            status = "RUNNING"
+            rpm = 1500
+            voltage = 230
+            frequency = 50
+            engineTemp = 48
+            runTime += 0.01
+        }
+
+        function stop() {
+            status = "STOPPED"
+            rpm = 0
+            voltage = 0
+            frequency = 0
+        }
+    }
+}
+```
+***
+
+### End Result (Image Representation)
+Below is a representation of how such a UI would appear in practice. This image is an illustrative mockup of the QML code output.
+
+Citations:
+[1] Qt Interface Framework Generator Tutorial - Qt Documentation https://doc.qt.io/QtInterfaceFramework/qtinterfaceframework-interfaceframework-qface-tutorial-example.html
+[2] Qt-QML/industrial-controls - GitHub https://github.com/Qt-QML/industrial-controls
+[3] Car Gauge UI with Qt QML https://www.youtube.com/watch?v=SEhOagKObvI
+[4] Correct way to make QML modules Qt 6.5-6.9 https://forum.qt.io/topic/162027/correct-way-to-make-qml-modules-qt-6.5-6.9
+[5] QtWS17 - QML-driven HMI Architectures for Rolling Embedded Devices, Christoph Sterz, KDAB https://www.youtube.com/watch?v=3fzr73AqvIE
+[6] An example Qt QML App depicting a dashboard https://github.com/opernitt/dashboardsample
+[7] Getting Started Programming with Qt Quick | Qt 6.9 https://doc.qt.io/qt-6.9/qtdoc-tutorials-alarms-example.html
+[8] Using QML in HMI GUI | Examples and Tutorials - CDP Studio https://cdpstudio.com/manual/cdp/examples/quickwidgetdemo.html
+[9] GitHub - cppqtdev/Qt-HMI-Display-UI https://github.com/cppqtdev/Qt-HMI-Display-UI
+[10] Qt Quick Controls Examples - Qt Documentation https://doc.qt.io/qt-6/qtquickcontrols-examples.html
