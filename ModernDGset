@@ -1,0 +1,316 @@
+--- Project: Diesel Generator Control Panel (Qt 6.9, QML)
+
+This single file contains all project files you need to build a modern Diesel Generator Control Panel demo in QML + minimal C++ entry. The QML simulates functionality (start/stop, gauges, alarms, trends) and is self-contained for demo/testing.
+
+Files included below (separated by ---FILE--- markers):
+
+---FILE--- CMakeLists.txt cmake_minimum_required(VERSION 3.16) project(DieselGeneratorPanel LANGUAGES CXX) set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED ON) find_package(Qt6 6.9 COMPONENTS Core Quick QuickControls2 REQUIRED) qt_standard_project_setup() qt_add_executable(app_dgpanel main.cpp ) qt_add_qml_module(app_dgpanel URI DieselPanel VERSION 1.0 QML_FILES main.qml ) set_target_properties(app_dgpanel PROPERTIES MACOSX_BUNDLE_GUI_IDENTIFIER my.example.dgpanel WIN32_EXECUTABLE TRUE ) target_link_libraries(app_dgpanel PRIVATE Qt6::Core Qt6::Quick Qt6::QuickControls2)
+
+---FILE--- main.cpp #include <QGuiApplication> #include <QQmlApplicationEngine>
+
+int main(int argc, char *argv[]) { QGuiApplication app(argc, argv); QQmlApplicationEngine engine; const QUrl url(QStringLiteral("qrc:/main.qml")); QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &app, [url](QObject *obj, const QUrl &objUrl) { if (!obj && url == objUrl) QCoreApplication::exit(-1); }, Qt::QueuedConnection); engine.load(url); return app.exec(); }
+
+---FILE--- qrc.qrc <RCC> <qresource prefix="/"> <file>main.qml</file> </qresource> </RCC>
+
+---FILE--- main.qml import QtQuick import QtQuick.Window import QtQuick.Controls import QtQuick.Layouts import QtQuick.Controls.Material 1.4 import QtQuick.Shapes
+
+ApplicationWindow { id: appWindow width: 1000 height: 700 visible: true title: qsTr("Diesel Generator Control Panel - Demo")
+
+Material.theme: Material.Dark
+
+// Simulated state model (pure QML simulation)
+property bool generatorRunning: false
+property int engineRpm: 0
+property real voltage: 0.0
+property real current: 0.0
+property int fuelPercent: 80
+property real batteryVoltage: 12.6
+property string alarmText: ""
+
+Timer {
+    id: simTimer
+    interval: 500
+    running: true
+    repeat: true
+    onTriggered: {
+        // Simple state progression
+        if (generatorRunning) {
+            engineRpm = Math.round(750 + Math.random()*1000)
+            voltage = 400 + Math.random()*10 - (Math.random()*2)
+            current = Math.max(0, 10 + Math.random()*40)
+            fuelPercent = Math.max(0, fuelPercent - 0.1)
+            batteryVoltage = 12.4 + Math.random()*0.4
+            if (voltage < 380) alarmText = "LOW VOLTAGE"
+            else if (batteryVoltage < 11.5) alarmText = "LOW BATTERY"
+            else alarmText = ""
+        } else {
+            engineRpm = 0
+            voltage = 0
+            current = 0
+            batteryVoltage = Math.max(12.0, batteryVoltage - 0.01)
+            if (batteryVoltage < 11.5) alarmText = "LOW BATTERY"
+            else alarmText = ""
+        }
+    }
+}
+
+header: ToolBar {
+    RowLayout {
+        anchors.fill: parent
+        spacing: 12
+        Label { text: "Diesel Generator Control Panel"; font.bold: true; Layout.alignment: Qt.AlignVCenter }
+        Item { Layout.fillWidth: true }
+        Label { text: Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm") }
+    }
+}
+
+GridLayout {
+    anchors.fill: parent
+    anchors.margins: 12
+    columns: 3
+    columnSpacing: 12
+    rowSpacing: 12
+
+    // Left column: Big gauges
+    Rectangle {
+        Layout.columnSpan: 1
+        Layout.rowSpan: 2
+        radius: 8
+        border.color: "#333"
+        color: "transparent"
+        anchors.fill: parent
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 12
+
+            // Gauges row
+            RowLayout {
+                spacing: 12
+                GaugeWidget { id: rpmGauge; title: "Engine RPM"; units: "rpm"; value: engineRpm; min: 0; max: 2000 }
+                GaugeWidget { id: voltGauge; title: "Voltage"; units: "V"; value: Math.round(voltage*10)/10; min: 0; max: 500 }
+                GaugeWidget { id: ampGauge; title: "Current"; units: "A"; value: Math.round(current*10)/10; min: 0; max: 200 }
+            }
+
+            // Controls
+            RowLayout {
+                spacing: 12
+                Button {
+                    text: generatorRunning ? "STOP" : "START"
+                    background: Rectangle { radius: 6 }
+                    onClicked: generatorRunning = !generatorRunning
+                }
+                Button { text: "Manual Mode"; checked: false }
+                Button { text: "Auto Mode" }
+                Button { text: "Test Alarm"; onClicked: alarmText = "TEST ALARM" }
+                Item { Layout.fillWidth: true }
+            }
+
+            // Status badges
+            RowLayout {
+                spacing: 8
+                Rectangle { width: 10; height: 10; radius: 2; color: generatorRunning ? "green" : "red" }
+                Label { text: generatorRunning ? "Running" : "Stopped" }
+                Label { text: "Fuel: " + Math.round(fuelPercent) + "%" }
+                Label { text: "Battery: " + Math.round(batteryVoltage*10)/10 + " V" }
+            }
+        }
+    }
+
+    // Middle column: Trend & load
+    Rectangle {
+        Layout.columnSpan: 2
+        Layout.rowSpan: 1
+        radius: 8
+        border.color: "#333"
+        color: "transparent"
+        height: 320
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 8
+
+            Label { text: "Trends (Voltage / Current)"; font.bold: true }
+
+            Canvas {
+                id: trendCanvas
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.reset()
+                    ctx.clearRect(0,0,width,height)
+                    // Draw axes
+                    ctx.beginPath(); ctx.moveTo(40,10); ctx.lineTo(40,height-30); ctx.lineTo(width-10,height-30); ctx.strokeStyle = "#666"; ctx.lineWidth = 1; ctx.stroke()
+                    // Draw random lines for demo
+                    ctx.strokeStyle = "#2ecc71"; ctx.lineWidth = 2
+                    ctx.beginPath()
+                    for (var i=0;i<width-60;i++) {
+                        var x = 40 + i
+                        var y = height-30 - (Math.sin((i+Date.now()/1000)/20)*20 + 40) - (voltage - 400)
+                        if (i==0) ctx.moveTo(x,y) else ctx.lineTo(x,y)
+                    }
+                    ctx.stroke()
+                    ctx.strokeStyle = "#3498db"; ctx.lineWidth = 2
+                    ctx.beginPath()
+                    for (var i=0;i<width-60;i++) {
+                        var x = 40 + i
+                        var y = height-30 - (Math.cos((i+Date.now()/1200)/18)*10 + 20) - (current/5)
+                        if (i==0) ctx.moveTo(x,y) else ctx.lineTo(x,y)
+                    }
+                    ctx.stroke()
+                }
+                Timer { interval: 400; running: true; repeat: true; onTriggered: trendCanvas.requestPaint() }
+            }
+        }
+    }
+
+    // Bottom-right: Panels
+    Rectangle {
+        Layout.column: 2
+        Layout.row: 2
+        radius: 8
+        border.color: "#333"
+        color: "transparent"
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 8
+
+            RowLayout {
+                spacing: 12
+                // Fuel gauge
+                ProgressBar { Layout.preferredWidth: 180; Layout.preferredHeight: 24; value: fuelPercent/100 }
+                ColumnLayout { spacing: 4; Label { text: "Fuel Level" } ; Label { text: Math.round(fuelPercent) + "%" } }
+
+                // Battery
+                ColumnLayout { spacing: 4; Label { text: "Battery Voltage" } ; Label { text: Math.round(batteryVoltage*10)/10 + " V" } }
+
+                // Alarms
+                Rectangle { Layout.fillWidth: true; height: 56; radius: 6; color: alarmText ? "#8b0000" : "transparent"; border.color: alarmText ? "#ff4444" : "#444";
+                    Label { anchors.centerIn: parent; text: alarmText ? ("ALARM: " + alarmText) : "No Active Alarms"; font.bold: true }
+                }
+            }
+
+            // Basic generator summary
+            Rectangle { radius: 6; border.color: "#333"; Layout.fillWidth: true; height: 100; ColumnLayout { anchors.fill: parent; anchors.margins: 8;
+                RowLayout { spacing: 24; Label { text: "Voltage: " + (voltage? Math.round(voltage*10)/10 : "-") + " V" } Label { text: "Current: " + (current? Math.round(current*10)/10 : "-") + " A" } Label { text: "RPM: " + engineRpm } }
+                RowLayout { spacing: 24; Label { text: "Mode: " + (generatorRunning? "Auto (Running)" : "Stopped") } Label { text: "Last Maintenance: 2025-10-01" } }
+            } }
+
+        }
+    }
+
+    // Reusable GaugeWidget declaration (inline component)
+    Component {
+        id: GaugeWidget
+        Rectangle {
+            width: 260
+            height: 220
+            radius: 8
+            border.color: "#444"
+            color: "#111"
+            property alias title: titleLabel.text
+            property alias units: unitsLabel.text
+            property real value: 0
+            property real min: 0
+            property real max: 100
+
+            ColumnLayout { anchors.fill: parent; anchors.margins: 8; spacing: 6; 
+                RowLayout { spacing: 6; Label { id: titleLabel; text: "Gauge"; font.bold: true }; Item { Layout.fillWidth: true } Label { id: unitsLabel; text: "" } }
+                Canvas { id: gcanvas; Layout.fillWidth: true; Layout.fillHeight: true; onPaint: {
+                    var ctx = getContext("2d"); ctx.reset(); ctx.clearRect(0,0,width,height);
+                    var cx = width/2; var cy = height/2 + 10; var r = Math.min(width,height)/2 - 20;
+                    // Background arc
+                    ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI*0.75,Math.PI*0.25,false); ctx.lineWidth=10; ctx.strokeStyle="#333"; ctx.stroke();
+                    // Value arc
+                    var frac = Math.max(0, Math.min(1, (value-min)/(max-min)));
+                    var end = Math.PI*0.75 + frac*(Math.PI*1.5);
+                    ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI*0.75,end,false); ctx.lineWidth=10; ctx.strokeStyle=(frac>0.75?"#e74c3c":"#2ecc71"); ctx.stroke();
+                    // Needle
+                    var angle = Math.PI*0.75 + frac*(Math.PI*1.5);
+                    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx + Math.cos(angle)*(r-10), cy + Math.sin(angle)*(r-10)); ctx.lineWidth=3; ctx.strokeStyle="#fff"; ctx.stroke();
+                    // Center
+                    ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); ctx.fillStyle="#fff"; ctx.fill();
+                    // Value text
+                    ctx.font = "16px sans-serif"; ctx.fillStyle="#fff"; ctx.textAlign = "center"; ctx.fillText(value + " " + units, cx, cy + r/2);
+                } }
+            }
+        }
+    }
+}
+
+// Simple keyboard shortcuts
+Keys.onPressed: {
+    if (event.key === Qt.Key_S) { generatorRunning = !generatorRunning }
+}
+
+}
+
+---FILE--- README.md
+
+Diesel Generator Control Panel - Demo (Qt 6.9, QML)
+
+What is included
+
+main.cpp - minimal C++ entrypoint using QQmlApplicationEngine
+
+main.qml - the entire UI implemented in QML + inline simulation
+
+CMakeLists.txt - project file for Qt 6.9
+
+qrc.qrc - resources to embed QML
+
+
+How to build (Linux/macOS/Windows with Qt 6.9 installed)
+
+1. mkdir build && cd build
+
+
+2. cmake ..
+
+
+3. cmake --build .
+
+
+4. Run the produced executable (on Linux: ./app_dgpanel)
+
+
+
+Notes: This demo simulates a generator for UI proof-of-concept. For real hardware integration, implement a C++ or Python backend exposing a QML-accessible context object (via engine.rootContext()->setContextProperty(...)) that reads real sensors, controls relays, handles safety interlocks, and stores logs.
+
+--- End of files ---
+
+I've created the full QML/C++ demo project for a modern Diesel Generator Control Panel and placed it in a canvas text document titled "Diesel Generator Control Panel - Qt Qml (qt 6)" (you can open that in the left-side canvas). I also generated a preview image of the end result.
+
+Download the UI preview image here: Download the preview PNG
+
+How to run the project (quick steps):
+
+1. Install Qt 6.9 and a suitable CMake toolchain.
+
+
+2. Copy the files from the canvas document into a project folder (CMakeLists.txt, main.cpp, qrc.qrc, main.qml, README.md).
+
+
+3. From a terminal:
+
+mkdir build && cd build
+
+cmake ..
+
+cmake --build .
+
+Run the produced executable (Linux example: ./app_dgpanel).
+
+
+
+
+Notes & next steps:
+
+The QML provided is a self-contained demo with a simulated backend (Timers generate changing values). For real hardware you should implement a C++ or Python backend that exposes sensor/actuator APIs to QML and add safety interlocks, logging, and persistent configuration.
+
+If you want, I can: (a) convert the simulation to a real backend stub (C++ class exposing Q_PROPERTY / slots), (b) provide custom SVG assets, or (c) produce higher-resolution screenshot variants — tell me which and I’ll produce them.
